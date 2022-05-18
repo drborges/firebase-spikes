@@ -4,12 +4,18 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   User,
+  connectAuthEmulator,
 } from "firebase/auth";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { app } from ".";
+import { isDevEnv } from "./environment";
 
 const auth = getAuth(app);
 auth.useDeviceLanguage();
+
+if (isDevEnv) {
+  connectAuthEmulator(auth, "http://localhost:9099");
+}
 
 export interface AuthError extends FirebaseError {
   email: string;
@@ -31,11 +37,18 @@ export async function signIn(): Promise<User | null> {
 }
 
 export function useAuthenticator() {
+  const busyRef = useRef(false);
   const [data, setData] = useState<User | null>();
 
   useEffect(() => {
-    if (!data) {
-      signIn().then(setData);
+    if (!data && !busyRef.current) {
+      busyRef.current = true;
+      signIn()
+        .then(setData)
+        .catch(console.error)
+        .then(() => {
+          busyRef.current = false;
+        });
     }
   }, []);
 
